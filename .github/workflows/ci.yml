@@ -21,7 +21,6 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm test
-      - run: npm run build
       - run: npx --no-install playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
       - run: npm run demo
@@ -40,7 +39,6 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm test
-      - run: npm run build
       - run: npm run demo
       - run: git diff --check
       - shell: pwsh

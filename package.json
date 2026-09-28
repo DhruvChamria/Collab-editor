@@ -9,10 +9,10 @@
     "build": "node scripts/build.mjs",
     "start": "node server/server.js",
     "dev": "npm run build && node --watch server/server.js",
-    "test": "node --test tests/unit.test.js tests/integration.test.js",
+    "test": "npm run build && node --test tests/unit.test.js tests/integration.test.js",
     "test:e2e": "playwright test",
     "demo": "node scripts/demo.mjs",
-    "check": "npm test && npm run build && npm run test:e2e && npm run demo"
+    "check": "npm test && npm run test:e2e && npm run demo"
   },
   "engines": { "node": ">=24.21.0 <25", "npm": ">=11.19.0 <12" },
   "packageManager": "npm@11.19.0",
