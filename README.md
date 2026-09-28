@@ -1,70 +1,61 @@
-# Real-Time Collaborative Code Editor
+# Collab Editor
 
-A Google Docs-style collaborative code editor built with Node.js and Socket.IO. Multiple users can join a shared room and edit code simultaneously, with changes synced in real time across all connected clients.
+Collab Editor is a small real-time editor for sharing a code snippet with a few people. Create a room, send the invite link, and everyone can edit the same document from their browser.
 
-## Demo
+I kept the scope deliberately focused. Each room holds one temporary document, supports up to eight participants, and lives in one Node.js process. There are no accounts, databases, chat features, or code execution.
 
-```
-User A types → server receives → broadcasts to User B, C, D → all editors update instantly
-```
+## Why I built it this way
 
-## Tech Stack
+The original version sent the whole document after every change. That was simple, but two people typing at once could overwrite each other. This version uses CodeMirror's maintained collaboration library to send structured edits instead. The server puts those edits in a single order, rebases stale edits, and lets every client pull the same history.
 
-- **Node.js + Express** - HTTP server and static file serving
-- **Socket.IO** - WebSocket-based real-time event broadcasting
-- **CodeMirror 5** - syntax-highlighted code editor with bracket matching
-- **Vanilla JS** - no frontend framework
+The project also handles the less visible parts of collaboration:
 
-## Features
+- room and participant identities come from the server;
+- edits are accepted only from a socket that joined that room;
+- reconnecting clients catch up before editing again;
+- old or unsafe sessions move into an explicit recovery flow;
+- documents, rooms, history, payloads, and request rates all have limits;
+- a tab-scoped draft gives users something to export when a room cannot be recovered.
 
-- Join or create rooms by room ID - multiple independent sessions
-- Sub-100ms edit synchronization across concurrent clients
-- Server-maintained authoritative document state - new users get full document on join
-- Online user list with live join/leave notifications
-- Typing indicator shows who is currently editing
-- Cursor position preserved when remote updates arrive
-- Conflict resolution via last-write-wins
-- Auto-cleanup of empty rooms
+## Run it locally
 
-## Architecture
-
-```
-Client A  ──┐
-Client B  ──┼──► Socket.IO Server ──► broadcast to others in room
-Client C  ──┘         │
-                       └──► In-memory room store
-                            { roomId: { code, users } }
-```
-
-The server is the single source of truth. Every `code-change` event updates the room's stored document, and the latest state is sent to any user who joins mid-session.
-
-## Getting Started
-
-**Prerequisites:** Node.js 16+
+You need Node.js 24.21.0 and npm 11.19.0. The repository pins both versions in `.nvmrc` and `package.json`.
 
 ```bash
-git clone https://github.com/DhruvChamria/collab-editor.git
-cd collab-editor
-npm install
-npm run dev       # uses nodemon for auto-reload
+npm ci --ignore-scripts
+npm run build
+npm start
 ```
 
-Open `http://localhost:3000`, enter a username and room ID, and open the same URL in another tab to test live collaboration.
+Open `http://localhost:3000`, create a blank or sample room, and open the invite in another browser window.
 
-## Project Structure
+For development, `npm run dev` builds the browser files once and watches the server. Run `npm run build` again after changing client-side code.
 
+Local defaults are `HOST=127.0.0.1`, `PORT=3000`, and `NODE_ENV=development`. A production start also needs `PUBLIC_ORIGIN` set to the site's exact HTTPS origin.
+
+## Run the checks
+
+```bash
+npm test
+npm run build
+npm run test:e2e
+npm run demo
+npm audit --audit-level=moderate
 ```
-collab-editor/
-├── server/
-│   └── server.js        # Socket.IO events, room management
-├── client/
-│   ├── index.html       # Join panel + editor layout
-│   ├── script.js        # Socket client, CodeMirror integration
-│   └── style.css        # Dark-themed UI
-└── package.json
+
+Install the Playwright browsers once before running the browser suite:
+
+```bash
+npx --no-install playwright install chromium firefox webkit
 ```
 
-## Known Limitations
+The tests create their own loopback servers and close every socket they open. Build output and test artifacts are ignored by Git.
 
-- State is in-memory only - restarting the server clears all rooms
-- No OT (Operational Transformation) or CRDT - concurrent edits use last-write-wins
+## Project guide
+
+- [Architecture](docs/architecture.md) explains how the server, browser, and collaboration loop fit together.
+- [Protocol](docs/protocol.md) describes the messages exchanged over Socket.IO.
+- [Safety and limits](docs/safety.md) covers privacy, resource limits, and deployment boundaries.
+- [Demo](docs/demo.md) gives a short walkthrough for showing the project to someone else.
+
+Rooms are temporary. Anyone with an invite can read and edit the document, and restarting the server removes every room. In the interface, **Synced** means this tab's edits have reached the current server process; it does not mean the document was saved to disk.
