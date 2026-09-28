@@ -1,74 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collaborative Code Editor</title>
-
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- CodeMirror 5 -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css"
-  />
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css"
-  />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="csp-nonce" content="__CSP_NONCE__">
+  <title>Collab Editor</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div>
-        <h1>Collaborative Code Editor</h1>
-        <p class="subtitle">Simple Google Docs-style real-time editor for code</p>
-      </div>
-    </header>
-
-    <section class="join-panel" id="joinPanel">
-      <h2>Join a Room</h2>
-
-      <div class="form-group">
-        <label for="username">Username</label>
-        <input type="text" id="username" placeholder="Enter your name" />
-      </div>
-
-      <div class="form-group">
-        <label for="roomId">Room ID</label>
-        <input type="text" id="roomId" placeholder="Enter room id (e.g. room123)" />
-      </div>
-
-      <button id="joinBtn">Join Room</button>
+  <a class="skip-link" href="#editorMount">Skip to editor</a>
+  <header class="site-header"><div><h1>Collab Editor</h1><p>Share a snippet. Edit together.</p></div><span id="statusBadge" class="badge" hidden>Connecting</span></header>
+  <main>
+    <section id="landing" class="landing" aria-labelledby="startHeading">
+      <h2 id="startHeading">Start collaborating</h2>
+      <p class="warning">Anyone with this link can edit. Rooms are temporary. Do not paste secrets.</p>
+      <form id="joinForm" novalidate>
+        <label for="name">Display name</label><p id="nameHelp" class="help">1–32 characters. Duplicate names are shown with a participant ID.</p>
+        <input id="name" name="name" maxlength="64" aria-describedby="nameHelp nameError" autocomplete="nickname"><p id="nameError" class="error" role="alert"></p>
+        <label for="roomCode">Room code</label><p id="roomHelp" class="help">Paste the 22-character code from an invite.</p>
+        <input id="roomCode" name="roomCode" maxlength="22" pattern="[A-Za-z0-9_-]{22}" aria-describedby="roomHelp roomError" autocomplete="off"><p id="roomError" class="error" role="alert"></p>
+        <div class="actions"><button type="submit" name="action" value="join">Join room</button><button type="button" id="createBlank" class="secondary">Create room</button><button type="button" id="createSample" class="secondary">Create sample room</button></div>
+      </form>
+      <article id="draftCard" class="draft-card" hidden><h2>Recovery copy found</h2><p>A recovery copy stays in this tab until cleared or the tab closes; storage may be unavailable.</p><div class="actions"><button id="restoreDraft" type="button">Create new room from draft</button><button id="exportDraft" type="button" class="secondary">Export</button><button id="clearDraft" type="button" class="danger">Clear local draft</button></div></article>
     </section>
-
-    <section class="editor-section hidden" id="editorSection">
-      <aside class="sidebar">
-        <div class="room-card">
-          <h3>Room</h3>
-          <p id="currentRoom">-</p>
-        </div>
-
-        <div class="users-card">
-          <h3>Users Online</h3>
-          <ul id="usersList"></ul>
-        </div>
-
-        <div class="typing-card">
-          <h3>Status</h3>
-          <p id="typingStatus">No one is typing</p>
-        </div>
-      </aside>
-
-      <main class="editor-container">
-        <textarea id="editor"></textarea>
-      </main>
+    <section id="workspace" hidden aria-labelledby="workspaceHeading">
+      <div class="workspace-heading"><div><h2 id="workspaceHeading">Shared snippet</h2><p id="roomLabel" class="mono"></p></div><div id="liveStatus" class="sr-only" aria-live="polite"></div></div>
+      <nav class="toolbar" aria-label="Editor controls">
+        <button id="copyInvite" type="button">Copy invite</button>
+        <label>Language <select id="language"><option value="javascript">JavaScript</option><option value="python">Python</option><option value="text">Plain text</option></select></label>
+        <label class="check"><input id="wrap" type="checkbox"> Wrap lines</label>
+        <button id="copyDocument" type="button" class="secondary">Copy document</button><button id="downloadDocument" type="button" class="secondary">Download</button><button id="leave" type="button" class="danger">Leave</button>
+      </nav>
+      <div class="workspace-grid"><div><p id="editorHelp" class="help">Tab moves out of the editor. Ctrl/Cmd+[ and ] outdent or indent.</p><div id="editorMount"></div><footer><span id="documentSize">0 / 32768 bytes</span><span id="pendingCount">0 pending</span><span id="expiry"></span></footer></div><aside><h2>People</h2><ul id="presenceList"></ul><p id="typingText" class="help">No one is typing.</p><p class="help">Synced means this tab’s edits are confirmed in the server’s current memory. Nothing is saved to disk.</p></aside></div>
+      <section id="recoveryActions" class="draft-card" hidden><h2>Recovery needed</h2><p>The shared document cannot be updated safely. Your visible text is still available.</p><div class="actions"><button id="recoveryRetry" type="button">Retry connection</button><button id="recoveryJoin" type="button" class="secondary">Join current room afresh</button><button id="recoveryExport" type="button">Export draft</button><button id="recoveryCreate" type="button" class="secondary">Create new room from draft</button><button id="recoveryLeave" type="button" class="danger">Leave</button></div></section>
     </section>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-  <script src="script.js"></script>
+  </main>
+  <dialog id="copyDialog"><form method="dialog"><h2>Copy manually</h2><p>Clipboard access was denied. Select and copy this text.</p><label class="sr-only" for="manualCopyText">Text to copy</label><textarea id="manualCopyText" readonly></textarea><button>Close</button></form></dialog>
+  <dialog id="leaveDialog"><form method="dialog"><h2>Unconfirmed edits</h2><p>Some edits may not be confirmed. Export a copy before leaving if you need them.</p><div class="actions"><button id="leaveExport" type="button">Export draft</button><button value="leave" class="danger">Leave anyway</button><button value="cancel" class="secondary">Cancel</button></div></form></dialog>
+  <dialog id="draftConflictDialog"><form method="dialog"><h2>Replace recovery copy?</h2><p>Continuing will replace the current tab recovery copy. Export it first if you need it.</p><div class="actions"><button id="draftConflictExport" type="button">Export draft</button><button value="replace">Replace and continue</button><button value="cancel" class="secondary">Cancel</button></div></form></dialog>
+  <dialog id="freshJoinDialog"><form method="dialog"><h2>Join without pending edits?</h2><p>Your current draft will not be published to the room. Export it before joining afresh if you need it.</p><div class="actions"><button id="freshJoinExport" type="button">Export draft</button><button value="join">Join afresh</button><button value="cancel" class="secondary">Cancel</button></div></form></dialog>
+  <script nonce="__CSP_NONCE__" src="/bundle.js"></script>
 </body>
 </html>
